@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>World Time</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    /* ── DARK THEME (default) ── */
+    :root {
+      --bg: #1a1520;
+      --surface: #221d2b;
+      --border: rgba(255,124,58,0.15);
+      --orange: #ff7c3a;
+      --orange-dim: rgba(255,124,58,0.12);
+      --orange-glow: rgba(255,124,58,0.32);
+      --pastel-lavender: #c9b8e8;
+      --pastel-peach: #e8cfb8;
+      --text: #e8e0f0;
+      --text-muted: #8a7fa0;
+      --divider: rgba(255,124,58,0.25);
+      --sec-track: rgba(255,124,58,0.12);
+      --card-shadow: 0 40px 80px rgba(0,0,0,0.5), 0 0 60px var(--orange-glow);
+      --tz-hover: rgba(255,124,58,0.08);
+      --tz-active: rgba(255,124,58,0.18);
+      --tz-text: #c8bedd;
+      --btn-bg: rgba(255,255,255,0.06);
+      --btn-hover: rgba(255,255,255,0.1);
+      --btn-border: rgba(255,255,255,0.1);
+      --dropdown-shadow: 0 16px 40px rgba(0,0,0,0.5);
+    }
+
+    /* ── LIGHT THEME ── */
+    [data-theme="light"] {
+      --bg: #f5f0ff;
+      --surface: #ffffff;
+      --border: rgba(220,100,30,0.22);
+      --orange: #d96018;
+      --orange-dim: rgba(217,96,24,0.08);
+      --orange-glow: rgba(217,96,24,0.1);
+      --pastel-lavender: #7a6a9a;
+      --pastel-peach: #9a6848;
+      --text: #2a1f3d;
+      --text-muted: #9087a8;
+      --divider: rgba(217,96,24,0.18);
+      --sec-track: rgba(217,96,24,0.1);
+      --card-shadow: 0 20px 60px rgba(60,40,100,0.1), 0 0 30px var(--orange-glow);
+      --tz-hover: rgba(217,96,24,0.06);
+      --tz-active: rgba(217,96,24,0.12);
+      --tz-text: #5a4f7a;
+      --btn-bg: rgba(0,0,0,0.04);
+      --btn-hover: rgba(0,0,0,0.07);
+      --btn-border: rgba(0,0,0,0.1);
+      --dropdown-shadow: 0 16px 40px rgba(60,40,100,0.14);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'DM Mono', monospace;
+      overflow: hidden;
+      position: relative;
+      transition: background 0.4s ease;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 60% 50% at 20% 80%, rgba(201,184,232,0.07) 0%, transparent 60%),
+        radial-gradient(ellipse 50% 40% at 80% 20%, rgba(255,124,58,0.07) 0%, transparent 60%),
+        radial-gradient(ellipse 40% 60% at 60% 70%, rgba(184,232,212,0.04) 0%, transparent 50%);
+      pointer-events: none;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      opacity: 0.35;
+      pointer-events: none;
+    }
+
+    /* ── CONTROLS ── */
+    .controls {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      display: flex;
+      gap: 8px;
+      z-index: 100;
+    }
+
+    .ctrl-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--btn-bg);
+      border: 1px solid var(--btn-border);
+      border-radius: 100px;
+      padding: 7px 14px;
+      cursor: pointer;
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+      letter-spacing: 0.05em;
+      transition: background 0.2s, color 0.2s, border-color 0.3s;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      user-select: none;
+      white-space: nowrap;
+    }
+
+    .ctrl-btn:hover { background: var(--btn-hover); color: var(--text); }
+
+    .ctrl-btn svg {
+      width: 13px;
+      height: 13px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      flex-shrink: 0;
+    }
+
+    /* ── TIMEZONE DROPDOWN ── */
+    .tz-wrapper { position: relative; }
+
+    .tz-dropdown {
+      position: absolute;
+      top: calc(100% + 8px);
+      right: 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: var(--dropdown-shadow);
+      min-width: 240px;
+      max-height: 380px;
+      overflow-y: auto;
+      opacity: 0;
+      transform: translateY(-8px) scale(0.97);
+      pointer-events: none;
+      transition: all 0.2s cubic-bezier(0.16,1,0.3,1), background 0.3s, border-color 0.3s;
+    }
+
+    .tz-dropdown::-webkit-scrollbar { width: 4px; }
+    .tz-dropdown::-webkit-scrollbar-track { background: transparent; }
+    .tz-dropdown::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .tz-dropdown.open {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      pointer-events: all;
+    }
+
+    .tz-group-label {
+      font-size: 9px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      padding: 10px 14px 4px;
+    }
+
+    .tz-option {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 9px 14px;
+      cursor: pointer;
+      transition: background 0.15s;
+      gap: 12px;
+    }
+
+    .tz-option:hover { background: var(--tz-hover); }
+    .tz-option.active { background: var(--tz-active); }
+    .tz-option.active .tz-name { color: var(--orange); }
+
+    .tz-name {
+      font-size: 12px;
+      color: var(--tz-text);
+      white-space: nowrap;
+      transition: color 0.2s;
+    }
+
+    .tz-offset {
+      font-size: 10px;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+
+    .tz-sep {
+      height: 1px;
+      background: var(--border);
+      margin: 4px 0;
+    }
+
+    /* ── CARD ── */
+    .card {
+      position: relative;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 52px 64px 48px;
+      text-align: center;
+      box-shadow: var(--card-shadow);
+      min-width: 480px;
+      transition: background 0.4s, box-shadow 0.4s, border-color 0.4s;
+      animation: fadeUp 0.8s cubic-bezier(0.16,1,0.3,1) both;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(30px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .location-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--orange-dim);
+      border: 1px solid rgba(255,124,58,0.25);
+      border-radius: 100px;
+      padding: 6px 16px;
+      margin-bottom: 36px;
+      transition: background 0.3s, border-color 0.3s;
+    }
+
+    .location-pill .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--orange);
+      box-shadow: 0 0 8px var(--orange);
+      animation: pulse 2s ease-in-out infinite;
+      transition: background 0.3s, box-shadow 0.3s;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.6; transform: scale(0.85); }
+    }
+
+    .location-pill span {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--orange);
+      transition: color 0.3s;
+    }
+
+    .time-display {
+      font-family: 'DM Serif Display', serif;
+      font-size: 88px;
+      line-height: 1;
+      color: var(--text);
+      letter-spacing: -2px;
+      margin-bottom: 4px;
+      text-shadow: 0 0 40px var(--orange-glow);
+      transition: color 0.3s, text-shadow 0.3s;
+    }
+
+    .time-display .colon {
+      color: var(--orange);
+      display: inline-block;
+      animation: blink 1s step-end infinite;
+      transition: color 0.3s;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.25; }
+    }
+
+    .ampm {
+      font-size: 20px;
+      font-weight: 300;
+      color: var(--pastel-peach);
+      letter-spacing: 0.05em;
+      margin-bottom: 44px;
+      transition: color 0.3s;
+    }
+
+    .divider {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--divider), transparent);
+      margin-bottom: 28px;
+      transition: background 0.3s;
+    }
+
+    .meta-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .meta-item { display: flex; flex-direction: column; gap: 4px; }
+    .meta-item:last-child { text-align: right; }
+
+    .meta-label {
+      font-size: 10px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      transition: color 0.3s;
+    }
+
+    .meta-value {
+      font-size: 14px;
+      color: var(--text);
+      font-weight: 400;
+      transition: color 0.3s;
+    }
+
+    .meta-center { display: flex; flex-direction: column; align-items: center; }
+
+    .seconds-ring { position: relative; width: 48px; height: 48px; }
+    .seconds-ring svg { transform: rotate(-90deg); }
+
+    .seconds-ring .track {
+      fill: none;
+      stroke: var(--sec-track);
+      stroke-width: 3;
+      transition: stroke 0.3s;
+    }
+
+    .seconds-ring .progress {
+      fill: none;
+      stroke: var(--orange);
+      stroke-width: 3;
+      stroke-linecap: round;
+      stroke-dasharray: 125.66;
+      transition: stroke-dashoffset 0.5s ease, stroke 0.3s;
+      filter: drop-shadow(0 0 4px var(--orange));
+    }
+
+    .seconds-num {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      color: var(--pastel-lavender);
+      font-weight: 500;
+      transition: color 0.3s;
+    }
+
+    .corner {
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      border-color: rgba(255,124,58,0.22);
+      border-style: solid;
+    }
+    .corner-tl { top: 16px; left: 16px; border-width: 2px 0 0 2px; border-radius: 4px 0 0 0; }
+    .corner-tr { top: 16px; right: 16px; border-width: 2px 2px 0 0; border-radius: 0 4px 0 0; }
+    .corner-bl { bottom: 16px; left: 16px; border-width: 0 0 2px 2px; border-radius: 0 0 0 4px; }
+    .corner-br { bottom: 16px; right: 16px; border-width: 0 2px 2px 0; border-radius: 0 0 4px 0; }
+
+    .flash { animation: tzflash 0.3s ease; }
+    @keyframes tzflash {
+      0% { opacity: 0.3; transform: scale(0.98); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+  </style>
+</head>
+<body>
+
+<div class="controls">
+  <button class="ctrl-btn" id="theme-btn" onclick="toggleTheme()">
+    <svg id="theme-icon" viewBox="0 0 24 24">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/>
+    </svg>
+    <span id="theme-label">Light</span>
+  </button>
+
+  <div class="tz-wrapper">
+    <button class="ctrl-btn" onclick="toggleTZ()">
+      <svg viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="2" y1="12" x2="22" y2="12"/>
+        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+      </svg>
+      <span>Time Zone</span>
+    </button>
+
+    <div class="tz-dropdown" id="tz-dropdown">
+      <div class="tz-group-label">Americas</div>
+      <div class="tz-option" data-offset="-9" data-label="AKST · Alaska" onclick="setTZ(this)">
+        <span class="tz-name">Alaska (AKST)</span><span class="tz-offset">UTC−9</span>
+      </div>
+      <div class="tz-option" data-offset="-8" data-label="PST · Pacific" onclick="setTZ(this)">
+        <span class="tz-name">Pacific (PST)</span><span class="tz-offset">UTC−8</span>
+      </div>
+      <div class="tz-option active" data-offset="-7" data-label="MST · Mountain" onclick="setTZ(this)">
+        <span class="tz-name">Mountain (MST)</span><span class="tz-offset">UTC−7</span>
+      </div>
+      <div class="tz-option" data-offset="-6" data-label="CST · Central" onclick="setTZ(this)">
+        <span class="tz-name">Central (CST)</span><span class="tz-offset">UTC−6</span>
+      </div>
+      <div class="tz-option" data-offset="-5" data-label="EST · Eastern" onclick="setTZ(this)">
+        <span class="tz-name">Eastern (EST)</span><span class="tz-offset">UTC−5</span>
+      </div>
+      <div class="tz-option" data-offset="-3" data-label="BRT · São Paulo" onclick="setTZ(this)">
+        <span class="tz-name">São Paulo (BRT)</span><span class="tz-offset">UTC−3</span>
+      </div>
+
+      <div class="tz-sep"></div>
+      <div class="tz-group-label">Europe & Africa</div>
+      <div class="tz-option" data-offset="0" data-label="GMT · London" onclick="setTZ(this)">
+        <span class="tz-name">London (GMT)</span><span class="tz-offset">UTC+0</span>
+      </div>
+      <div class="tz-option" data-offset="1" data-label="CET · Paris / Berlin" onclick="setTZ(this)">
+        <span class="tz-name">Paris / Berlin (CET)</span><span class="tz-offset">UTC+1</span>
+      </div>
+      <div class="tz-option" data-offset="2" data-label="EET · Cairo" onclick="setTZ(this)">
+        <span class="tz-name">Cairo (EET)</span><span class="tz-offset">UTC+2</span>
+      </div>
+      <div class="tz-option" data-offset="3" data-label="MSK · Moscow" onclick="setTZ(this)">
+        <span class="tz-name">Moscow (MSK)</span><span class="tz-offset">UTC+3</span>
+      </div>
+
+      <div class="tz-sep"></div>
+      <div class="tz-group-label">Asia & Pacific</div>
+      <div class="tz-option" data-offset="4" data-label="GST · Dubai" onclick="setTZ(this)">
+        <span class="tz-name">Dubai (GST)</span><span class="tz-offset">UTC+4</span>
+      </div>
+      <div class="tz-option" data-offset="5.5" data-label="IST · Mumbai" onclick="setTZ(this)">
+        <span class="tz-name">Mumbai (IST)</span><span class="tz-offset">UTC+5:30</span>
+      </div>
+      <div class="tz-option" data-offset="6" data-label="BST · Dhaka" onclick="setTZ(this)">
+        <span class="tz-name">Dhaka (BST)</span><span class="tz-offset">UTC+6</span>
+      </div>
+      <div class="tz-option" data-offset="7" data-label="ICT · Bangkok" onclick="setTZ(this)">
+        <span class="tz-name">Bangkok (ICT)</span><span class="tz-offset">UTC+7</span>
+      </div>
+      <div class="tz-option" data-offset="8" data-label="CST · Beijing / Singapore" onclick="setTZ(this)">
+        <span class="tz-name">Beijing / Singapore</span><span class="tz-offset">UTC+8</span>
+      </div>
+      <div class="tz-option" data-offset="9" data-label="JST · Tokyo" onclick="setTZ(this)">
+        <span class="tz-name">Tokyo (JST)</span><span class="tz-offset">UTC+9</span>
+      </div>
+      <div class="tz-option" data-offset="10" data-label="AEST · Sydney" onclick="setTZ(this)">
+        <span class="tz-name">Sydney (AEST)</span><span class="tz-offset">UTC+10</span>
+      </div>
+      <div class="tz-option" data-offset="12" data-label="NZST · Auckland" onclick="setTZ(this)">
+        <span class="tz-name">Auckland (NZST)</span><span class="tz-offset">UTC+12</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="corner corner-tl"></div>
+  <div class="corner corner-tr"></div>
+  <div class="corner corner-bl"></div>
+  <div class="corner corner-br"></div>
+
+  <div class="location-pill">
+    <div class="dot"></div>
+    <span id="tz-label">Mountain Standard Time · UTC−7</span>
+  </div>
+
+  <div class="time-display" id="time-display">
+    <span id="hours">00</span><span class="colon">:</span><span id="minutes">00</span>
+  </div>
+
+  <div class="ampm" id="ampm">AM</div>
+  <div class="divider"></div>
+
+  <div class="meta-row">
+    <div class="meta-item">
+      <span class="meta-label">Date</span>
+      <span class="meta-value" id="date-display">—</span>
+    </div>
+    <div class="meta-center">
+      <div class="seconds-ring">
+        <svg width="48" height="48" viewBox="0 0 48 48">
+          <circle class="track" cx="24" cy="24" r="20"/>
+          <circle class="progress" id="sec-ring" cx="24" cy="24" r="20" stroke-dashoffset="0"/>
+        </svg>
+        <div class="seconds-num" id="sec-num">00</div>
+      </div>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Week</span>
+      <span class="meta-value" id="week-display">—</span>
+    </div>
+  </div>
+</div>
+
+<script>
+  let currentOffset = -7;
+  let isDark = true;
+
+  // ── Theme ──
+  function toggleTheme() {
+    isDark = !isDark;
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    const icon = document.getElementById('theme-icon');
+    const lbl = document.getElementById('theme-label');
+    if (isDark) {
+      icon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/>';
+      lbl.textContent = 'Light';
+    } else {
+      icon.innerHTML = '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>';
+      lbl.textContent = 'Dark';
+    }
+  }
+
+  // ── Timezone ──
+  function toggleTZ() {
+    document.getElementById('tz-dropdown').classList.toggle('open');
+  }
+
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.tz-wrapper'))
+      document.getElementById('tz-dropdown').classList.remove('open');
+  });
+
+  function setTZ(el) {
+    currentOffset = parseFloat(el.dataset.offset);
+    const rawLabel = el.dataset.label;
+    const sign = currentOffset >= 0 ? '+' : '−';
+    const absH = Math.floor(Math.abs(currentOffset));
+    const absM = Math.round((Math.abs(currentOffset) - absH) * 60);
+    const utcStr = absM > 0
+      ? `UTC${sign}${absH}:${String(absM).padStart(2,'0')}`
+      : `UTC${sign}${absH}`;
+
+    document.getElementById('tz-label').textContent = `${rawLabel} · ${utcStr}`;
+    document.querySelectorAll('.tz-option').forEach(o => o.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('tz-dropdown').classList.remove('open');
+
+    const td = document.getElementById('time-display');
+    td.classList.remove('flash');
+    void td.offsetWidth;
+    td.classList.add('flash');
+    update();
+  }
+
+  // ── Clock ──
+  function getTime() {
+    const now = new Date();
+    const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
+    return new Date(utcMs + currentOffset * 3600000);
+  }
+
+  function getWeekNumber(d) {
+    const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    const dayNum = date.getUTCDay() || 7;
+    date.setUTCDate(date.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+    return Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
+  }
+
+  const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const pad = n => String(n).padStart(2, '0');
+
+  function update() {
+    const t = getTime();
+    let h = t.getHours();
+    const m = t.getMinutes();
+    const s = t.getSeconds();
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12 || 12;
+
+    document.getElementById('hours').textContent = pad(h);
+    document.getElementById('minutes').textContent = pad(m);
+    document.getElementById('ampm').textContent = ampm;
+    document.getElementById('sec-num').textContent = pad(s);
+    document.getElementById('sec-ring').style.strokeDashoffset =
+      125.66 - (s / 60) * 125.66;
+    document.getElementById('date-display').textContent =
+      `${days[t.getDay()]}, ${months[t.getMonth()]} ${t.getDate()}`;
+    document.getElementById('week-display').textContent =
+      `W${getWeekNumber(t)} of ${t.getFullYear()}`;
+  }
+
+  update();
+  setInterval(update, 1000);
+</script>
+</body>
+</html>
